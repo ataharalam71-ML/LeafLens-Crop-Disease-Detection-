@@ -1,0 +1,19 @@
+Model: AlexNet
+Test Accuracy: 0.1999
+
+                        precision    recall  f1-score   support
+
+           Target Spot     0.0000    0.0000    0.0000       212
+          Mosaic Virus     0.0000    0.0000    0.0000        57
+Yellow Leaf Curl Virus     0.1999    1.0000    0.3332       482
+        Bacterial Spot     0.0000    0.0000    0.0000       320
+          Early Blight     0.0000    0.0000    0.0000       150
+             Healthy ✓     0.0000    0.0000    0.0000       240
+           Late Blight     0.0000    0.0000    0.0000       287
+             Leaf Mold     0.0000    0.0000    0.0000       144
+    Septoria Leaf Spot     0.0000    0.0000    0.0000       267
+          Spider Mites     0.0000    0.0000    0.0000       252
+
+              accuracy                         0.1999      2411
+             macro avg     0.0200    0.1000    0.0333      2411
+          weighted avg     0.0400    0.1999    0.0666      2411

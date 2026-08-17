@@ -1,0 +1,18 @@
+{
+    "sourceFile": "config.py",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1777986748178,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1777986748178,
+            "name": "Commit-0",
+            "content": "\"\"\"\nconfig.py — Central configuration for Tomato Disease CNN Project\n\"\"\"\n\nimport os\nfrom pathlib import Path\n\n# ─── Paths ────────────────────────────────────────────────────────────────────\nBASE_DIR      = Path(__file__).parent\nDATA_DIR      = Path(r\"C:\\Users\\ataha\\Desktop\\PlantVillage\")          # ← Point to your dataset folder\nMODELS_DIR    = BASE_DIR / \"saved_models\"\nLOGS_DIR      = BASE_DIR / \"logs\"\nRESULTS_DIR   = BASE_DIR / \"results\"\n\nfor d in [MODELS_DIR, LOGS_DIR, RESULTS_DIR]:\n    d.mkdir(parents=True, exist_ok=True)\n\n# ─── Classes ───────────────────────────────────────────────────────────────────\nCLASS_NAMES = [\n    \"Tomato__Target_Spot\",\n    \"Tomato__Tomato_mosaic_virus\",\n    \"Tomato__Tomato_YellowLeaf__Curl_Virus\",\n    \"Tomato_Bacterial_spot\",\n    \"Tomato_Early_blight\",\n    \"Tomato_healthy\",\n    \"Tomato_Late_blight\",\n    \"Tomato_Leaf_Mold\",\n    \"Tomato_Septoria_leaf_spot\",\n    \"Tomato_Spider_mites_Two_spotted_spider_mite\",\n]\n\nDISPLAY_NAMES = [\n    \"Target Spot\",\n    \"Mosaic Virus\",\n    \"Yellow Leaf Curl Virus\",\n    \"Bacterial Spot\",\n    \"Early Blight\",\n    \"Healthy ✓\",\n    \"Late Blight\",\n    \"Leaf Mold\",\n    \"Septoria Leaf Spot\",\n    \"Spider Mites\",\n]\n\nNUM_CLASSES = len(CLASS_NAMES)\n\n# ─── Training ──────────────────────────────────────────────────────────────────\nIMAGE_SIZE   = 224          # Input image size (224×224)\nBATCH_SIZE   = 32\nNUM_EPOCHS   = 30\nLEARNING_RATE = 1e-3\nWEIGHT_DECAY  = 1e-4\nPATIENCE      = 7           # Early stopping patience\n\n# Train / Val / Test split\nTRAIN_SPLIT = 0.70\nVAL_SPLIT   = 0.15\nTEST_SPLIT  = 0.15\n\n# ─── Models to train ──────────────────────────────────────────────────────────\n# Set to True/False to enable/disable each model\nMODELS_TO_TRAIN = {\n    \"CustomCNN\":        True,   # Built from scratch (fast baseline)\n    \"ResNet50\":         True,   # Transfer learning\n    \"EfficientNetB0\":   True,   # Transfer learning (lightweight)\n    \"MobileNetV3\":      True,   # Transfer learning (edge-friendly)\n    \"VGG16\":            False,  # Heavy, optional\n}\n\n# ─── Augmentation ─────────────────────────────────────────────────────────────\nUSE_AUGMENTATION = True\n\n# ─── Camera ───────────────────────────────────────────────────────────────────\nCAMERA_INDEX         = 0       # 0 = default webcam\nCAMERA_FRAME_WIDTH   = 1280\nCAMERA_FRAME_HEIGHT  = 720\nCAMERA_FPS           = 30\nCONFIDENCE_THRESHOLD = 0.60    # Minimum confidence to display prediction\n\n# Best model to use for inference (auto-selected after training)\nINFERENCE_MODEL = \"EfficientNetB0\"   # Change if you prefer another\n\n# ─── Flask Web App ────────────────────────────────────────────────────────────\nFLASK_HOST = \"0.0.0.0\"\nFLASK_PORT = 5000\nFLASK_DEBUG = False\n\n# ─── Device ───────────────────────────────────────────────────────────────────\nimport torch\nDEVICE = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\n\n# ─── Misc ─────────────────────────────────────────────────────────────────────\nRANDOM_SEED  = 42\nNUM_WORKERS  = 4 if os.cpu_count() > 4 else 2\n"
+        }
+    ]
+}

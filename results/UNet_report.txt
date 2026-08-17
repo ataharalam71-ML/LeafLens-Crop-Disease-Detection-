@@ -1,0 +1,19 @@
+Model: UNet
+Test Accuracy: 0.9755
+
+                        precision    recall  f1-score   support
+
+           Target Spot     0.9758    0.9528    0.9642       212
+          Mosaic Virus     0.9825    0.9825    0.9825        57
+Yellow Leaf Curl Virus     0.9937    0.9855    0.9896       482
+        Bacterial Spot     0.9726    0.9969    0.9846       320
+          Early Blight     0.9371    0.8933    0.9147       150
+             Healthy ✓     0.9677    1.0000    0.9836       240
+           Late Blight     0.9647    0.9512    0.9579       287
+             Leaf Mold     1.0000    0.9583    0.9787       144
+    Septoria Leaf Spot     0.9779    0.9925    0.9851       267
+          Spider Mites     0.9690    0.9921    0.9804       252
+
+              accuracy                         0.9755      2411
+             macro avg     0.9741    0.9705    0.9721      2411
+          weighted avg     0.9755    0.9755    0.9754      2411

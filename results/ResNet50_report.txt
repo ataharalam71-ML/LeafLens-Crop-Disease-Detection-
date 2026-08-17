@@ -1,0 +1,19 @@
+Model: ResNet50
+Test Accuracy: 0.9979
+
+                        precision    recall  f1-score   support
+
+           Target Spot     1.0000    1.0000    1.0000       212
+          Mosaic Virus     1.0000    1.0000    1.0000        57
+Yellow Leaf Curl Virus     1.0000    1.0000    1.0000       482
+        Bacterial Spot     0.9969    1.0000    0.9984       320
+          Early Blight     1.0000    0.9933    0.9967       150
+             Healthy ✓     0.9877    1.0000    0.9938       240
+           Late Blight     0.9965    0.9861    0.9912       287
+             Leaf Mold     1.0000    1.0000    1.0000       144
+    Septoria Leaf Spot     1.0000    1.0000    1.0000       267
+          Spider Mites     1.0000    1.0000    1.0000       252
+
+              accuracy                         0.9979      2411
+             macro avg     0.9981    0.9979    0.9980      2411
+          weighted avg     0.9979    0.9979    0.9979      2411

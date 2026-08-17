@@ -1,0 +1,19 @@
+Model: DenseNet121
+Test Accuracy: 0.9975
+
+                        precision    recall  f1-score   support
+
+           Target Spot     1.0000    0.9906    0.9953       212
+          Mosaic Virus     1.0000    1.0000    1.0000        57
+Yellow Leaf Curl Virus     1.0000    0.9979    0.9990       482
+        Bacterial Spot     1.0000    1.0000    1.0000       320
+          Early Blight     1.0000    1.0000    1.0000       150
+             Healthy ✓     0.9877    1.0000    0.9938       240
+           Late Blight     1.0000    0.9895    0.9947       287
+             Leaf Mold     1.0000    1.0000    1.0000       144
+    Septoria Leaf Spot     1.0000    1.0000    1.0000       267
+          Spider Mites     0.9882    1.0000    0.9941       252
+
+              accuracy                         0.9975      2411
+             macro avg     0.9976    0.9978    0.9977      2411
+          weighted avg     0.9975    0.9975    0.9975      2411

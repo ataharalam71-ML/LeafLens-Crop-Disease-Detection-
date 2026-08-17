@@ -1,0 +1,10 @@
+{
+  "CustomCNN": 0.9829,
+  "ResNet50": 0.9996,
+  "EfficientNetB0": 0.9983,
+  "MobileNetV3": 0.9996,
+  "VGG16": 0.2007,
+  "AlexNet": 0.2007,
+  "UNet": 0.9771,
+  "DenseNet121": 1.0
+}

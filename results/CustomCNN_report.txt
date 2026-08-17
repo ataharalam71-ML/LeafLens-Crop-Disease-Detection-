@@ -1,0 +1,19 @@
+Model: CustomCNN
+Test Accuracy: 0.9805
+
+                        precision    recall  f1-score   support
+
+           Target Spot     0.9720    0.9811    0.9765       212
+          Mosaic Virus     0.9661    1.0000    0.9828        57
+Yellow Leaf Curl Virus     0.9775    0.9896    0.9835       482
+        Bacterial Spot     0.9752    0.9812    0.9782       320
+          Early Blight     0.9635    0.8800    0.9199       150
+             Healthy ✓     0.9959    1.0000    0.9979       240
+           Late Blight     0.9690    0.9791    0.9740       287
+             Leaf Mold     0.9930    0.9792    0.9860       144
+    Septoria Leaf Spot     0.9925    0.9888    0.9906       267
+          Spider Mites     0.9921    0.9921    0.9921       252
+
+              accuracy                         0.9805      2411
+             macro avg     0.9797    0.9771    0.9781      2411
+          weighted avg     0.9805    0.9805    0.9803      2411

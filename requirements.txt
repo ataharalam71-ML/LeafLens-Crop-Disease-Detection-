@@ -1,0 +1,27 @@
+# Core deep learning
+# For a CUDA GPU install torch/torchvision from the PyTorch index instead, e.g.:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Data / numerics
+numpy>=1.24.0
+pandas>=2.0.0
+Pillow>=10.0.0
+scikit-learn>=1.3.0
+
+# Plots
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Camera + web app
+opencv-python>=4.8.0
+flask>=3.0.0
+
+# Training utilities
+tqdm>=4.65.0
+tensorboard>=2.14.0
+
+# NOTE: albumentations was removed — augmentation now uses torchvision.transforms.v2,
+# which ships with torchvision and needs no C++ build toolchain.
+# timm / grad-cam were listed but never imported; Grad-CAM is implemented in utils/gradcam.py.
