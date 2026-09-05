@@ -707,8 +707,10 @@
     <option value="{{ m.name }}"
             {% if not m.trained %}disabled{% endif %}
             {% if m.name == current_model and m.trained %}selected{% endif %}>
-      {{ m.name }}{% if not m.trained %} — not trained
-      {%- elif m.test_accuracy is not none %} — {{ '%.1f'|format(m.test_accuracy * 100) }}%
+      {{ m.name }}
+      {%- if m.trained and m.test_accuracy is not none %} — {{ '%.1f'|format(m.test_accuracy * 100) }}%
+      {%- elif not m.trained and m.evaluated %} — {{ '%.1f'|format(m.test_accuracy * 100) }}%, not in this build
+      {%- elif not m.trained %} — not trained
       {%- endif %}
     </option>
     {% endfor %}

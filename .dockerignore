@@ -6,7 +6,10 @@ saved_models/*
 !saved_models/EfficientNetB0_best.pth
 
 # Calibration: keep the JSON + the Gaussians for the served model only.
+# test_results.json must come too - it is what the UI reads to show each
+# model's accuracy, and without it every model reports "n/a".
 results/*
+!results/test_results.json
 !results/ood_calibration_EfficientNetB0.json
 !results/ood_mahalanobis_EfficientNetB0.npz
 

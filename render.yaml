@@ -10,8 +10,11 @@
 # like a slideshow, which is why capture is self-pacing rather than on a timer.
 
 services:
+  # This name becomes the public hostname: https://<name>.onrender.com
+  # It must be unique across all of Render, not just your account, so change
+  # it if the deploy reports the name is taken.
   - type: web
-    name: leaflens
+    name: leaflens-tomato-detector
     runtime: docker
     plan: free
     region: oregon

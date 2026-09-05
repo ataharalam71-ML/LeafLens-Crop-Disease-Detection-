@@ -93,14 +93,20 @@ def get_all_models() -> list:
     Showing one figure for all of them would be a straightforward misreport.
     """
     acc = load_test_accuracies()
-    return [
-        {
+    out = []
+    for m in config.MODELS_TO_TRAIN:
+        has_ckpt = (config.MODELS_DIR / f"{m}_best.pth").exists()
+        out.append({
             "name": m,
-            "trained": (config.MODELS_DIR / f"{m}_best.pth").exists(),
+            "trained": has_ckpt,          # checkpoint on disk = selectable here
+            # A recorded test score proves the model WAS trained, even when its
+            # checkpoint is absent. The hosted build ships one 16 MB model out of
+            # 3.8 GB, so the other seven are "not in this build", not "not
+            # trained" - and saying the latter would understate the project.
+            "evaluated": m in acc,
             "test_accuracy": acc.get(m),
-        }
-        for m in config.MODELS_TO_TRAIN
-    ]
+        })
+    return out
 
 
 def load_model_cached(model_name: str):
