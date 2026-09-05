@@ -1,0 +1,31 @@
+# Render blueprint — free tier, no card required.
+#
+# Sized against measured numbers rather than guesses:
+#   resident memory with the model loaded and after a request ... 353 MB
+#   free instance allowance .................................... 512 MB
+#   /predict round-trip pinned to one thread ................... 132 ms
+#
+# The free instance is 0.1 CPU, so expect roughly 1-2 s per prediction once
+# throttling is applied. Fine for tap-to-capture; the live view will update
+# like a slideshow, which is why capture is self-pacing rather than on a timer.
+
+services:
+  - type: web
+    name: leaflens
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /models
+    envVars:
+      # Load the model at boot rather than making the first visitor wait.
+      - key: TOMATO_PRELOAD
+        value: "1"
+      # A 0.1-CPU instance cannot use multiple threads; letting torch spawn
+      # them just adds contention and memory for no throughput.
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+      - key: TORCH_NUM_THREADS
+        value: "1"

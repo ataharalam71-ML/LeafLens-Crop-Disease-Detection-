@@ -213,6 +213,17 @@ DEVICE = _resolve_device()
 if DEVICE.type == "cuda":
     torch.backends.cudnn.benchmark = True
 
+# Free container tiers allocate a fraction of a CPU (Render free is 0.1). Letting
+# torch spawn a thread per core there costs memory and adds contention without
+# adding throughput, so the host can pin it. Measured: a single-thread /predict
+# round-trip is 132 ms, statistically the same as the 6-thread 141 ms.
+_threads = os.environ.get("TORCH_NUM_THREADS") or os.environ.get("OMP_NUM_THREADS")
+if _threads:
+    try:
+        torch.set_num_threads(max(1, int(_threads)))
+    except (ValueError, RuntimeError):
+        pass
+
 # Mixed precision — big speed/VRAM win on CUDA, unsupported elsewhere.
 USE_AMP = DEVICE.type == "cuda"
 

@@ -1,15 +1,3 @@
----
-title: LeafLens Tomato Disease Detector
-emoji: "🍅"
-colorFrom: green
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
-license: mit
-short_description: Tomato leaf disease diagnosis that refuses to guess
----
-
 # 🍅 Tomato Disease Detection — CNN Project
 
 Classifies tomato leaf images into 9 diseases + healthy, using 8 CNN architectures
@@ -251,32 +239,45 @@ The hosted app is a single long-lived container. That is deliberate: the model
 is loaded once and cached, and `utils/ood.py` attaches a forward hook that has
 to survive between requests, so a serverless platform would reload PyTorch on
 every call. Vercel is additionally impossible here on size alone - the training
-environment is ~882 MB installed against a 250 MB function limit.
+environment is ~882 MB installed against a 250 MB function limit, and even the
+trimmed inference set does not fit.
 
-### Hugging Face Spaces (recommended, free)
+### Render (recommended - free tier, no card)
 
-1. huggingface.co -> **New Space** -> SDK **Docker**, hardware **CPU basic**.
-2. Add the Space as a remote and push:
+Hugging Face Spaces now requires a PRO subscription for Docker and Gradio
+Spaces; only Static Spaces remain free, and a Static Space cannot run Python.
+Render's free web-service tier still can.
 
-```bash
-git remote add space https://huggingface.co/spaces/<your-username>/<space-name>
-git push space main
-```
+The app was measured against that tier rather than assumed to fit:
 
-The Space reads its configuration from the YAML block at the top of this README
-(`sdk: docker`, `app_port: 7860`). First build takes 5-10 minutes, mostly
-downloading torch.
+| | measured | free tier |
+|---|---|---|
+| Resident memory, model loaded, after requests | 351 MB (365 MB peak) | 512 MB |
+| `/predict` round-trip, pinned to one thread | 132 ms | 0.1 CPU |
 
-`Dockerfile` installs `requirements-deploy.txt`, not `requirements.txt` - the
-inference set drops scikit-learn, scipy, matplotlib, seaborn and tensorboard
-(none are imported by `app.py`) and swaps `opencv-python` for the headless
-build, since a server has no display. `.dockerignore` keeps the 3.8 GB of
-checkpoints and the dataset out of the image; only `EfficientNetB0_best.pth`
-(16 MB) and its calibration files are copied in, so the abstention layer and
-treatment advice work in the live demo.
+Steps:
 
-Render, Fly.io and Railway all work from the same Dockerfile; they set `$PORT`,
-which `config.py` reads.
+1. render.com -> **New** -> **Blueprint**, and point it at the GitHub repo.
+   `render.yaml` configures everything; or use **New -> Web Service** and pick
+   **Docker** as the runtime.
+2. Choose the **Free** instance type.
+3. Deploy. The first build takes 5-10 minutes, mostly downloading torch.
+
+Render injects `$PORT`, which `config.py` reads. `TOMATO_PRELOAD=1` loads the
+model at boot so the first visitor does not pay for it, and threads are pinned
+to 1 - on a 0.1-CPU instance, extra torch threads cost memory and add
+contention without adding throughput.
+
+Two properties of the free tier to plan around: it **spins down after 15
+minutes idle** and takes roughly a minute to wake, and 0.1 CPU means a
+prediction lands around 1-2 s rather than the 132 ms measured above. Open the
+URL a few minutes before presenting.
+
+### Other hosts
+
+The same Dockerfile runs unchanged on Fly.io, Railway and Google Cloud Run.
+Cloud Run is the fastest free option - its free allowance covers a real vCPU,
+so predictions stay near the measured 132 ms - but it requires a card on file.
 
 ### The camera runs in the visitor's browser
 
