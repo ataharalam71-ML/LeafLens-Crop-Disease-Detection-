@@ -1,0 +1,48 @@
+# Keep the image small. Without this, `COPY . .` would pull in the 3.8 GB of
+# checkpoints and the whole PlantVillage dataset.
+
+# Everything in saved_models EXCEPT the one model the hosted app serves.
+saved_models/*
+!saved_models/EfficientNetB0_best.pth
+
+# Calibration: keep the JSON + the Gaussians for the served model only.
+results/*
+!results/ood_calibration_EfficientNetB0.json
+!results/ood_mahalanobis_EfficientNetB0.npz
+
+# Training data and logs never belong in the image.
+PlantVillage/
+field_data/
+logs/
+runs/
+uploads/
+captures/
+smoke_test_out/
+
+# Repo / tooling noise
+.git/
+.github/
+.gitignore
+.history/
+.lh/
+.vscode/
+.idea/
+.claude/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.ipynb
+Results_Analysis.ipynb
+
+# Training-only code paths; not imported by app.py.
+train.py
+evaluate.py
+field_eval.py
+calibrate_ood.py
+check_env.py
+smoke_test.py
+camera_app.py
+utils/visualize.py
+requirements.txt

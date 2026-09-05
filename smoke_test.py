@@ -174,7 +174,11 @@ def main():
     def _flask():
         import app as flask_app
         routes = {r.rule for r in flask_app.app.url_map.iter_rules()}
-        for required in ("/", "/predict", "/models", "/stream", "/gradcam"):
+        # /stream and /camera/* were removed: a server-opened webcam is the
+        # HOST's camera, which is meaningless once the app is deployed. The
+        # browser captures frames and POSTs them to /predict instead.
+        for required in ("/", "/predict", "/models", "/gradcam",
+                         "/treatment/<path:class_name>", "/severity", "/ood/status"):
             assert required in routes, f"missing route {required}"
         print(f"  {len(routes)} routes registered")
 

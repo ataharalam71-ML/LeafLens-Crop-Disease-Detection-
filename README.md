@@ -1,3 +1,15 @@
+---
+title: LeafLens Tomato Disease Detector
+emoji: "🍅"
+colorFrom: green
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Tomato leaf disease diagnosis that refuses to guess
+---
+
 # 🍅 Tomato Disease Detection — CNN Project
 
 Classifies tomato leaf images into 9 diseases + healthy, using 8 CNN architectures
@@ -230,6 +242,64 @@ Outputs: `results/field_results.json`, `field_vs_lab.png`,
 | `GET /treatment/<class>` | Treatment plan for any class, no image needed |
 | `POST /severity` | Severity number plus the segmentation mask it came from |
 | `GET /ood/status` | Whether thresholds are calibrated or fallback |
+
+---
+
+## Deploying it publicly
+
+The hosted app is a single long-lived container. That is deliberate: the model
+is loaded once and cached, and `utils/ood.py` attaches a forward hook that has
+to survive between requests, so a serverless platform would reload PyTorch on
+every call. Vercel is additionally impossible here on size alone - the training
+environment is ~882 MB installed against a 250 MB function limit.
+
+### Hugging Face Spaces (recommended, free)
+
+1. huggingface.co -> **New Space** -> SDK **Docker**, hardware **CPU basic**.
+2. Add the Space as a remote and push:
+
+```bash
+git remote add space https://huggingface.co/spaces/<your-username>/<space-name>
+git push space main
+```
+
+The Space reads its configuration from the YAML block at the top of this README
+(`sdk: docker`, `app_port: 7860`). First build takes 5-10 minutes, mostly
+downloading torch.
+
+`Dockerfile` installs `requirements-deploy.txt`, not `requirements.txt` - the
+inference set drops scikit-learn, scipy, matplotlib, seaborn and tensorboard
+(none are imported by `app.py`) and swaps `opencv-python` for the headless
+build, since a server has no display. `.dockerignore` keeps the 3.8 GB of
+checkpoints and the dataset out of the image; only `EfficientNetB0_best.pth`
+(16 MB) and its calibration files are copied in, so the abstention layer and
+treatment advice work in the live demo.
+
+Render, Fly.io and Railway all work from the same Dockerfile; they set `$PORT`,
+which `config.py` reads.
+
+### The camera runs in the visitor's browser
+
+`cv2.VideoCapture(0)` opens the camera of whatever machine the code runs on. On
+a laptop that is the demo machine; on a deployed host it is a server with no
+camera at all. So the web UI captures frames with `getUserMedia`, downscales
+them to 448x448 in a canvas, and POSTs them to `/predict`.
+
+That means the live view uses *the visitor's own phone camera*, which is what a
+grower in a field actually needs. It also works identically on localhost.
+`camera_app.py` still does native OpenCV capture for local desktop use.
+
+Two consequences worth knowing:
+
+- `getUserMedia` requires a secure context - `https://` or `localhost`. Spaces
+  serves HTTPS, so both are covered.
+- Capture is self-pacing rather than on a fixed interval: the next frame is
+  requested only after the previous prediction returns. On a free CPU tier one
+  inference takes roughly 0.5-1 s, and a fixed interval would queue requests
+  faster than the server could answer them.
+
+Free Spaces sleep after ~48 h idle and take ~30 s to wake, so open the URL once
+before presenting.
 
 ---
 

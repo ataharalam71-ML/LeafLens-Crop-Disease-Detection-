@@ -1,0 +1,30 @@
+# Inference-only dependencies for the hosted app.
+#
+# requirements.txt is the TRAINING environment. This file is what the container
+# installs, and it is deliberately smaller: the full set weighs ~882 MB
+# installed, most of which the web app never imports.
+#
+# Dropped here, and why they are safe to drop:
+#   scikit-learn (42 MB)  - only evaluate.py / field_eval.py / calibrate_ood.py
+#   scipy        (117 MB) - pulled in by scikit-learn, nothing else
+#   matplotlib   (28 MB)  - only utils/visualize.py, not imported by app.py
+#   seaborn, pandas       - same, plotting and reporting only
+#   tensorboard           - training-time logging only
+#
+# opencv-python is swapped for opencv-python-headless: identical API minus the
+# GUI/GTK stack, which a server has no display for anyway. Saves ~80 MB and
+# avoids libGL errors in a slim container.
+#
+# The CPU-only torch wheel is pinned via --extra-index-url; the default PyPI
+# torch bundles CUDA libraries worth several GB that a CPU host cannot use.
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
+
+numpy>=1.24.0
+Pillow>=10.0.0
+opencv-python-headless>=4.8.0
+flask>=3.0.0
+gunicorn>=21.2.0

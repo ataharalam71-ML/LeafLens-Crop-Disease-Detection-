@@ -184,7 +184,9 @@ OOD_FALLBACK_THRESHOLDS = {
 
 # ─── Flask Web App ────────────────────────────────────────────────────────────
 FLASK_HOST = "0.0.0.0"
-FLASK_PORT = 5000
+# Container hosts (Hugging Face Spaces, Render, Fly, Railway) inject the port
+# they expect the app to bind. Local runs keep 5000.
+FLASK_PORT = int(os.environ.get("PORT") or os.environ.get("TOMATO_PORT") or 5000)
 FLASK_DEBUG = False
 
 # ─── Device ───────────────────────────────────────────────────────────────────

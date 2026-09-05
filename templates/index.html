@@ -587,7 +587,12 @@
     aspect-ratio: 16 / 10; overflow: hidden;
     display: grid; place-items: center;
   }
-  #camera-feed { width: 100%; height: 100%; object-fit: contain; display: none; }
+  #camera-feed {
+    width: 100%; height: 100%; object-fit: cover; display: none;
+    background: #000;
+  }
+  /* Front cameras are mirrored so the preview matches what the user expects. */
+  #camera-feed.mirrored { transform: scaleX(-1); }
   .cam-stage.streaming #camera-feed { display: block; }
   .cam-stage.streaming .cam-placeholder { display: none; }
   .cam-placeholder {
@@ -836,19 +841,18 @@
       <div class="cam-controls">
         <button class="btn btn-primary" id="start-cam-btn" onclick="startCamera()">▶ Start Camera</button>
         <button class="btn btn-secondary" id="stop-cam-btn" onclick="stopCamera()" disabled>■ Stop</button>
-        <select id="cam-index-sel" class="cam-select">
-          <option value="0">Camera 0 (default)</option>
-          <option value="1">Camera 1</option>
-          <option value="2">Camera 2</option>
-        </select>
+        <button class="btn btn-secondary" onclick="flipCamera()" title="Front / rear camera">
+          Flip
+        </button>
       </div>
 
       <div class="cam-stage" id="cam-stage">
-        <img id="camera-feed" src="" alt="Live camera feed"/>
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="cam-canvas" hidden></canvas>
         <div class="cam-placeholder">
-          <div class="ph-icon">📹</div>
+          <div class="ph-icon">&#128249;</div>
           <p>Camera is not running</p>
-          <small>Press “Start Camera” to begin live diagnosis</small>
+          <small>Uses <b>your</b> device camera &mdash; nothing is streamed from the server</small>
         </div>
       </div>
 
@@ -1239,74 +1243,161 @@ async function runGradCAM() {
   }
 }
 
-// ── Camera ────────────────────────────────────────────────────────────────────
-async function startCamera() {
-  const idx = parseInt(document.getElementById("cam-index-sel").value);
-  const res = await fetch("/camera/start", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({camera: idx}),
-  });
-  const data = await res.json();
-  if (data.error) { toast("⚠️ " + data.error); return; }
+// -- Camera (captured in the visitor's browser) ------------------------------
+// The server has no webcam worth opening: on a deployed host, cv2.VideoCapture(0)
+// would grab the SERVER's camera, not the visitor's. So frames are captured here
+// with getUserMedia and POSTed to /predict, which also means the same code path
+// works locally and over the internet.
+//
+// getUserMedia needs a secure context: https:// or localhost. Both are covered.
+let camStream = null;
+let camTimer  = null;
+let camBusy   = false;
+let camFacing = "environment";   // rear camera by default - it is a field tool
 
-  document.getElementById("camera-feed").src = "/stream";
+async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast("This browser cannot access the camera.", 4000);
+    return;
+  }
+  const startBtn = document.getElementById("start-cam-btn");
+  startBtn.disabled = true;
+  startBtn.innerHTML = '<span class="spinner"></span>Starting...';
+
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: camFacing },
+               width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+  } catch (e) {
+    // Distinguish "you said no" from "there is no camera" - they need
+    // different fixes, and a single generic error helps nobody.
+    const msg = e.name === "NotAllowedError"
+      ? "Camera permission denied. Allow it in your browser's address bar."
+      : e.name === "NotFoundError"
+      ? "No camera found on this device."
+      : "Could not start the camera: " + e.message;
+    toast(msg, 5000);
+    startBtn.disabled = false;
+    startBtn.innerHTML = "Start Camera";
+    return;
+  }
+
+  const video = document.getElementById("camera-feed");
+  video.srcObject = camStream;
+  video.classList.toggle("mirrored", camFacing === "user");
+  await video.play().catch(() => {});
+
   document.getElementById("cam-stage").classList.add("streaming");
   document.getElementById("cam-dot").classList.add("live");
   document.getElementById("cam-status-text").textContent = "Live";
-  document.getElementById("start-cam-btn").disabled = true;
   document.getElementById("stop-cam-btn").disabled = false;
   document.getElementById("cam-pred-box").style.display = "flex";
-  cameraRunning = true;
-  pollCamPrediction();
+  startBtn.innerHTML = "Start Camera";
+
+  scheduleCapture();
 }
 
-async function stopCamera() {
-  await fetch("/camera/stop", {method:"POST"});
-  document.getElementById("camera-feed").src = "";
+function stopCamera() {
+  clearTimeout(camTimer); camTimer = null;
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+
+  const video = document.getElementById("camera-feed");
+  video.srcObject = null;
   document.getElementById("cam-stage").classList.remove("streaming");
   document.getElementById("cam-dot").classList.remove("live");
   document.getElementById("cam-status-text").textContent = "Stopped";
   document.getElementById("start-cam-btn").disabled = false;
   document.getElementById("stop-cam-btn").disabled = true;
-  cameraRunning = false;
-  clearInterval(predPollTimer);
 }
 
-function pollCamPrediction() {
-  predPollTimer = setInterval(async () => {
-    if (!cameraRunning) return;
-    try {
-      const res  = await fetch("/camera/prediction");
-      const data = await res.json();
-      const label = document.getElementById("cam-pred-label");
-      label.textContent = data.label;
-
-      // The live view carries the verdict too — a refused frame must not look
-      // like a diagnosis just because it is moving.
-      let cls = "diseased";
-      if (!data.answerable)                             cls = "";
-      else if (data.decision === "review")              cls = "";
-      else if (data.label.toLowerCase().includes("healthy")) cls = "healthy";
-      label.className = "cam-pred-label " + cls;
-      if (!data.answerable || data.decision === "review")
-        label.style.color = data.answerable ? "var(--amber)" : "var(--muted)";
-      else
-        label.style.color = "";
-
-      const meta = data.answerable
-        ? (data.treatment_summary
-            ? `${(data.confidence*100).toFixed(1)}%  ·  ${data.treatment_summary}`
-            : `${(data.confidence*100).toFixed(1)}% confidence  ·  ${data.model}`)
-        : (data.note || "Point the camera at a single tomato leaf");
-      document.getElementById("cam-pred-meta").textContent = meta;
-      document.getElementById("cam-fps").textContent = data.fps.toFixed(1) + " fps";
-    } catch {}
-  }, 400);
+function flipCamera() {
+  camFacing = camFacing === "environment" ? "user" : "environment";
+  if (camStream) { stopCamera(); startCamera(); }
+  else toast(camFacing === "user" ? "Front camera" : "Rear camera", 1400);
 }
 
-// ── Per-model test accuracy ──────────────────────────────────────────────────
-// Accuracy is a property of the selected model, not of the project. VGG16 and
-// AlexNet collapsed to ~20%; showing the best model's 99.79% for all of them
+// Self-pacing loop rather than setInterval: on a free CPU tier one inference
+// takes ~0.5-1 s, and a fixed interval would queue requests faster than the
+// server can answer them. The next capture is scheduled only once the last
+// one has come back.
+function scheduleCapture() {
+  if (!camStream) return;
+  camTimer = setTimeout(captureAndPredict, 700);
+}
+
+async function captureAndPredict() {
+  if (!camStream || camBusy) { scheduleCapture(); return; }
+  const video = document.getElementById("camera-feed");
+  if (!video.videoWidth) { scheduleCapture(); return; }
+
+  camBusy = true;
+  const t0 = performance.now();
+  try {
+    const canvas = document.getElementById("cam-canvas");
+    // Downscale to the model's input size before encoding: sending a 1280x720
+    // JPEG over the wire on every tick is wasted bandwidth when the server
+    // immediately resizes to 224.
+    const side = 448;
+    canvas.width = side; canvas.height = side;
+    const ctx = canvas.getContext("2d");
+    const s = Math.min(video.videoWidth, video.videoHeight);
+    ctx.drawImage(video,
+      (video.videoWidth - s) / 2, (video.videoHeight - s) / 2, s, s,
+      0, 0, side, side);
+
+    const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.85));
+    if (!blob) { camBusy = false; scheduleCapture(); return; }
+
+    const fd = new FormData();
+    fd.append("image", blob, "frame.jpg");
+    fd.append("model", currentModel);
+
+    const res = await fetch("/predict", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!data.error) renderCamResult(data, performance.now() - t0);
+  } catch (e) {
+    // A dropped frame is not worth interrupting the user over; keep going.
+  } finally {
+    camBusy = false;
+    scheduleCapture();
+  }
+}
+
+function renderCamResult(data, ms) {
+  const label = document.getElementById("cam-pred-label");
+  const meta  = document.getElementById("cam-pred-meta");
+  const v = data.verdict;
+  const answerable = !v || v.answerable;
+
+  label.textContent = answerable ? data.top.display : "No tomato leaf detected";
+  label.className = "cam-pred-label " +
+    (!answerable || (v && v.decision === "review") ? ""
+      : data.top.is_healthy ? "healthy" : "diseased");
+  label.style.color = !answerable ? "var(--muted)"
+    : (v && v.decision === "review") ? "var(--amber)" : "";
+
+  if (answerable) {
+    const t = data.treatment;
+    meta.textContent = (data.top.confidence * 100).toFixed(1) + "%"
+      + (t ? "  -  " + t.urgency_label + " urgency, act " + t.action_window_days : "");
+  } else {
+    meta.textContent = (v.reasons && v.reasons[0]) || "Point at a single tomato leaf";
+  }
+
+  document.getElementById("cam-fps").textContent = (1000 / Math.max(ms, 1)).toFixed(1) + " fps";
+
+  // A held frame is worth a full read-out, so mirror it into the analysis panel.
+  if (answerable) { showResult(data); }
+}
+
+// Release the camera if the tab is hidden - otherwise the indicator light
+// stays on and we keep burning inference on frames nobody is looking at.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && camStream) stopCamera();
+});
+
 // would misreport the result, so the figure follows the dropdown.
 function refreshAccuracy() {
   const el = document.getElementById("stat-acc");

@@ -5,9 +5,13 @@ Features:
   • Upload a leaf image  → prediction + confidence + Grad-CAM + treatment plan
   • Abstention layer     → refuses to diagnose non-leaf / unusable images
   • Severity estimate    → how much of the leaf is symptomatic
-  • Live camera stream   → real-time prediction overlay via MJPEG endpoint
+  • Live camera          → captured in the VISITOR's browser and POSTed to
+                           /predict. A webcam opened server-side would be the
+                           HOST's camera, not theirs, so it cannot work over
+                           the internet; camera_app.py still does native
+                           OpenCV capture for local desktop use.
   • Model switcher       → choose between all trained models
-  • REST API             → /predict /treatment /models /stream /gradcam /ood/status
+  • REST API             → /predict /treatment /severity /models /gradcam /ood/status
 
 Usage:
     python app.py
@@ -18,6 +22,7 @@ import argparse
 import base64
 import io
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -35,7 +40,7 @@ import treatments
 from models.model_builder import get_model
 from utils.dataset import inference_transform
 from utils.gradcam import GradCAM, get_target_layer, run_gradcam
-from utils.ood import FeatureTap, get_detector, ACCEPT, REVIEW, REJECT
+from utils.ood import FeatureTap, get_detector
 from utils.severity import estimate_severity
 
 # ─── App setup ───────────────────────────────────────────────────────────────
@@ -179,165 +184,6 @@ def run_inference(pil_img: Image.Image, model_name: str, topk: int = 3,
     return result
 
 
-# ─── Camera streaming ────────────────────────────────────────────────────────
-
-class CameraStream:
-    """Background thread that grabs frames and annotates them."""
-
-    # Running the abstention layer on every frame would halve the frame rate for
-    # no benefit — the verdict barely changes between adjacent frames.
-    OOD_EVERY_N_FRAMES = 5
-
-    def __init__(self):
-        self.cap          = None
-        self.frame        = None
-        self.running      = False
-        self.model_name   = _current_model_name
-        self.label        = "No model loaded"
-        self.confidence   = 0.0
-        self.fps          = 0.0
-        self.decision     = ACCEPT
-        self.verdict_note = ""
-        self.severity     = None
-        self._thread      = None
-        self._frame_lock  = threading.Lock()
-        self._state_lock  = threading.Lock()
-
-    def start(self, camera_idx: int = config.CAMERA_INDEX):
-        if self.running:
-            return
-        self.cap = cv2.VideoCapture(camera_idx)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
-        if not self.cap.isOpened():
-            raise RuntimeError(f"Cannot open camera {camera_idx}")
-        self.running = True
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
-
-    def stop(self):
-        self.running = False
-        if self.cap:
-            self.cap.release()
-        self.cap = None
-
-    def set_model(self, model_name: str):
-        with self._state_lock:
-            self.model_name = model_name
-
-    def _loop(self):
-        fps_times = []
-        frame_no = 0
-        while self.running:
-            t0 = time.time()
-            ret, frame = self.cap.read()
-            if not ret:
-                time.sleep(0.05); continue
-
-            frame_no += 1
-            with self._state_lock:
-                mn = self.model_name
-
-            is_healthy = False
-            try:
-                model, tap = load_model_cached(mn)
-                rgb    = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                pil    = Image.fromarray(rgb)
-                tensor = inference_transform(pil).unsqueeze(0).to(config.DEVICE)
-
-                with torch.no_grad():
-                    with _lock:
-                        logits = model(tensor)
-                        features = tap.get().clone()
-                    probs = F.softmax(logits, dim=1)[0]
-                    top_p, top_i = probs.max(dim=0)
-
-                self.label      = config.DISPLAY_NAMES[int(top_i)]
-                self.confidence = float(top_p)
-                is_healthy      = "healthy" in config.CLASS_NAMES[int(top_i)].lower()
-
-                if config.OOD_ENABLED and frame_no % self.OOD_EVERY_N_FRAMES == 0:
-                    verdict = get_detector(mn).evaluate(pil, logits[0], features)
-                    with self._state_lock:
-                        self.decision = verdict.decision
-                        self.verdict_note = verdict.reasons[0] if verdict.reasons else ""
-            except Exception as e:                              # noqa: BLE001
-                self.label = f"Error: {e}"
-                self.confidence = 0.0
-                self.decision = REJECT
-
-            annotated = self._annotate(frame, mn, is_healthy)
-
-            elapsed = time.time() - t0
-            fps_times.append(elapsed)
-            if len(fps_times) > 30:
-                fps_times.pop(0)
-            self.fps = 1.0 / (sum(fps_times) / len(fps_times) + 1e-9)
-
-            cv2.putText(annotated, f"FPS: {self.fps:.1f}",
-                        (annotated.shape[1] - 100, annotated.shape[0] - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1, cv2.LINE_AA)
-
-            with self._frame_lock:
-                self.frame = annotated.copy()
-
-    def _annotate(self, frame, model_name, is_healthy):
-        annotated = frame.copy()
-        h, w = annotated.shape[:2]
-
-        with self._state_lock:
-            decision = self.decision
-            note = self.verdict_note
-
-        # Colour carries the verdict, not just the class.
-        if decision == REJECT:
-            color = (128, 128, 128)                       # grey — refusing
-        elif decision == REVIEW:
-            color = (30, 160, 230)                        # amber — unsure
-        else:
-            color = (50, 200, 50) if is_healthy else (30, 50, 220)
-
-        cv2.rectangle(annotated, (0, 0), (w - 1, h - 1), color, 5)
-
-        overlay = annotated.copy()
-        cv2.rectangle(overlay, (0, 0), (w, 78), (15, 15, 15), -1)
-        cv2.addWeighted(overlay, 0.7, annotated, 0.3, 0, annotated)
-
-        if decision == REJECT:
-            disp = "No tomato leaf detected"
-        elif decision == REVIEW:
-            disp = f"{self.label}?"
-        else:
-            disp = self.label
-
-        cv2.putText(annotated, disp, (10, 30),
-                    cv2.FONT_HERSHEY_DUPLEX, 0.8, color, 2, cv2.LINE_AA)
-
-        sub = (note[:58] if decision != ACCEPT and note
-               else f"{self.confidence*100:.1f}%   [{model_name}]")
-        cv2.putText(annotated, sub, (10, 54),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.48, (200, 200, 200), 1, cv2.LINE_AA)
-        cv2.putText(annotated, decision.upper(), (10, 71),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.42, color, 1, cv2.LINE_AA)
-
-        if decision != REJECT:
-            bar_w = int(w * min(self.confidence, 1.0))
-            cv2.rectangle(annotated, (0, h - 5), (bar_w, h), color, -1)
-
-        return annotated
-
-    def get_jpeg(self) -> bytes:
-        with self._frame_lock:
-            if self.frame is None:
-                return b""
-            _, buf = cv2.imencode(".jpg", self.frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            return buf.tobytes()
-
-
-camera_stream = CameraStream()
-
-
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -372,7 +218,6 @@ def select_model():
     if name not in get_available_models():
         return jsonify({"error": f"Model '{name}' not available."}), 400
     _current_model_name = name
-    camera_stream.set_model(name)
     return jsonify({"selected": name})
 
 
@@ -488,107 +333,63 @@ def gradcam_endpoint():
     return jsonify({"gradcam": "data:image/png;base64," + encoded})
 
 
-# ── Camera: start / stop ──
-@app.route("/camera/start", methods=["POST"])
-def camera_start():
-    data     = request.get_json(silent=True) or {}
-    cam_idx  = int(data.get("camera", config.CAMERA_INDEX))
-    try:
-        camera_stream.start(cam_idx)
-        return jsonify({"status": "started"})
-    except RuntimeError as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/camera/stop", methods=["POST"])
-def camera_stop():
-    camera_stream.stop()
-    return jsonify({"status": "stopped"})
-
-
-# ── Camera: MJPEG stream ──
-@app.route("/stream")
-def video_stream():
-    def generate():
-        while True:
-            jpeg = camera_stream.get_jpeg()
-            if jpeg:
-                yield (b"--frame\r\n"
-                       b"Content-Type: image/jpeg\r\n\r\n" + jpeg + b"\r\n")
-            time.sleep(0.033)   # ~30 fps cap
-
-    return Response(generate(),
-                    mimetype="multipart/x-mixed-replace; boundary=frame")
-
-
-# ── Camera: current prediction JSON ──
-@app.route("/camera/prediction")
-def camera_prediction():
-    answerable = camera_stream.decision != REJECT
-    payload = {
-        "label":      camera_stream.label if answerable else "No tomato leaf detected",
-        "confidence": round(camera_stream.confidence, 4),
-        "fps":        round(camera_stream.fps, 1),
-        "model":      camera_stream.model_name,
-        "decision":   camera_stream.decision,
-        "note":       camera_stream.verdict_note,
-        "answerable": answerable,
-    }
-    if answerable:
-        try:
-            idx = config.DISPLAY_NAMES.index(camera_stream.label)
-            payload["treatment_summary"] = treatments.summary_line(
-                config.CLASS_NAMES[idx])
-        except ValueError:
-            pass
-    return jsonify(payload)
-
-
 # ── Serve result images ──
 @app.route("/results/<path:filename>")
 def serve_result(filename):
     return send_from_directory(str(RESULTS_DIR), filename)
 
 
-# ─── Entry point ─────────────────────────────────────────────────────────────
+# --- Startup ------------------------------------------------------------------
+
+def warmup() -> None:
+    """
+    Pick the model to serve and load it before the first request.
+
+    Under gunicorn nothing in `__main__` runs, so without this the first
+    visitor pays the full PyTorch load (tens of seconds on a free CPU tier)
+    and may time out. Guarded by TOMATO_PRELOAD so importing app.py in tests
+    stays instant.
+    """
+    global _current_model_name
+
+    available = get_available_models()
+    if not available:
+        print("  [!]  No trained models found. Run  python train.py  first.")
+        return
+
+    _current_model_name = (
+        config.INFERENCE_MODEL
+        if config.INFERENCE_MODEL in available
+        else available[0]
+    )
+    try:
+        load_model_cached(_current_model_name)
+    except Exception as e:                                  # noqa: BLE001
+        print(f"  [!]  Could not pre-load model: {e}")
+
+    det = get_detector(_current_model_name)
+    if det.calibrated:
+        print(f"  [ok] OOD detector calibrated (T={det.temperature:.3f})")
+    else:
+        print("  [!]  OOD detector on fallback thresholds - "
+              "run  python calibrate_ood.py  to tune them.")
+
+
+if os.environ.get("TOMATO_PRELOAD") == "1":
+    warmup()
+
+
+# --- Entry point --------------------------------------------------------------
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host",   default=config.FLASK_HOST)
     parser.add_argument("--port",   type=int, default=config.FLASK_PORT)
     parser.add_argument("--debug",  action="store_true", default=config.FLASK_DEBUG)
-    parser.add_argument("--camera", type=int, default=-1,
-                        help="Camera index to auto-start (-1 = don't auto-start)")
     args = parser.parse_args()
 
-    available = get_available_models()
-    if available:
-        _current_model_name = (
-            config.INFERENCE_MODEL
-            if config.INFERENCE_MODEL in available
-            else available[0]
-        )
-        try:
-            load_model_cached(_current_model_name)
-        except Exception as e:                              # noqa: BLE001
-            print(f"  ⚠️  Could not pre-load model: {e}")
+    warmup()
 
-        det = get_detector(_current_model_name)
-        if det.calibrated:
-            print(f"  🛡️  OOD detector calibrated (T={det.temperature:.3f})")
-        else:
-            print("  ⚠️  OOD detector on fallback thresholds — "
-                  "run  python calibrate_ood.py  to tune them.")
-    else:
-        print("  ⚠️  No trained models found. Run  python train.py  first.")
-
-    if args.camera >= 0:
-        try:
-            camera_stream.start(args.camera)
-            print(f"  🎥  Camera {args.camera} started.")
-        except RuntimeError as e:
-            print(f"  ⚠️  {e}")
-
-    print(f"\n  🌐  Starting Flask app  →  http://localhost:{args.port}")
+    print(f"\n  Starting Flask app  ->  http://localhost:{args.port}")
     app.run(host=args.host, port=args.port, debug=args.debug,
             threaded=True, use_reloader=False)
