@@ -1,0 +1,40 @@
+{
+  "model": "MobileNetV3",
+  "n_calibration_images": 800,
+  "subsampled": true,
+  "val_accuracy": 1.0,
+  "temperature": 0.271505,
+  "ece_before": 0.091117,
+  "ece_after": 2e-06,
+  "target_tpr": 0.95,
+  "thresholds": {
+    "msp": 0.9,
+    "margin": 0.8,
+    "entropy": 0.05,
+    "energy": -4.016109,
+    "mahalanobis": 601.890736
+  },
+  "thresholds_unclamped": {
+    "msp": 0.999999,
+    "margin": 0.999999,
+    "entropy": 8e-06,
+    "energy": -4.016109,
+    "mahalanobis": 601.890736
+  },
+  "clamped": [
+    "msp",
+    "margin",
+    "entropy"
+  ],
+  "reject_side": {
+    "msp": "low",
+    "margin": "low",
+    "entropy": "high",
+    "energy": "high",
+    "mahalanobis": "high"
+  },
+  "mahalanobis_file": "ood_mahalanobis_MobileNetV3.npz",
+  "mahalanobis_shrinkage": 0.1,
+  "feature_dim": 1280,
+  "ood_evaluation": null
+}

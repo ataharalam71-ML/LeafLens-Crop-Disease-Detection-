@@ -127,10 +127,24 @@ def main():
     def _predict():
         import predict as predict_mod
         predict_mod.get_model = _get_model_no_download
-        results = predict_mod.predict(sample_holder["path"], trained[0], topk=3)
-        assert len(results) == 3
-        total = sum(r["confidence"] for r in results)
+        res = predict_mod.predict(sample_holder["path"], trained[0], topk=3)
+
+        assert len(res["topk"]) == 3
+        total = sum(r["confidence"] for r in res["topk"])
         assert 0 < total <= 1.001, f"bad probabilities: {total}"
+
+        # The abstention layer must always render a verdict...
+        verdict = res["verdict"]
+        assert verdict is not None, "no OOD verdict returned"
+        assert verdict["decision"] in {"accept", "review", "reject"}, verdict["decision"]
+
+        # ...and advice must be present exactly when the verdict allows an answer.
+        if verdict["answerable"]:
+            assert res["treatment"] is not None, "answerable but no treatment plan"
+            assert res["treatment"]["urgency"] in range(6)
+            assert res["severity"] is not None
+        else:
+            assert res["treatment"] is None, "refused the image but still advised a spray"
 
     if trained:
         step("Single-image prediction", _predict)

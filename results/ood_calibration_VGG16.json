@@ -1,0 +1,39 @@
+{
+  "model": "VGG16",
+  "n_calibration_images": 800,
+  "subsampled": true,
+  "val_accuracy": 0.1913,
+  "temperature": 0.879787,
+  "ece_before": 0.00506,
+  "ece_after": 0.009286,
+  "target_tpr": 0.95,
+  "thresholds": {
+    "msp": 0.3,
+    "margin": 0.071775,
+    "entropy": 0.6,
+    "energy": -2.123738,
+    "mahalanobis": 0.0
+  },
+  "thresholds_unclamped": {
+    "msp": 0.200536,
+    "margin": 0.071775,
+    "entropy": 0.961777,
+    "energy": -2.123738,
+    "mahalanobis": 0.0
+  },
+  "clamped": [
+    "msp",
+    "entropy"
+  ],
+  "reject_side": {
+    "msp": "low",
+    "margin": "low",
+    "entropy": "high",
+    "energy": "high",
+    "mahalanobis": "high"
+  },
+  "mahalanobis_file": "ood_mahalanobis_VGG16.npz",
+  "mahalanobis_shrinkage": 0.1,
+  "feature_dim": 4096,
+  "ood_evaluation": null
+}

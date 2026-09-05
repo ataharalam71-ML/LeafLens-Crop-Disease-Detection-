@@ -1,0 +1,39 @@
+{
+  "model": "CustomCNN",
+  "n_calibration_images": 800,
+  "subsampled": true,
+  "val_accuracy": 0.9862,
+  "temperature": 0.510618,
+  "ece_before": 0.106758,
+  "ece_after": 0.009176,
+  "target_tpr": 0.95,
+  "thresholds": {
+    "msp": 0.9,
+    "margin": 0.8,
+    "entropy": 0.107573,
+    "energy": -2.607139,
+    "mahalanobis": 263.137029
+  },
+  "thresholds_unclamped": {
+    "msp": 0.95022,
+    "margin": 0.915732,
+    "entropy": 0.107573,
+    "energy": -2.607139,
+    "mahalanobis": 263.137029
+  },
+  "clamped": [
+    "msp",
+    "margin"
+  ],
+  "reject_side": {
+    "msp": "low",
+    "margin": "low",
+    "entropy": "high",
+    "energy": "high",
+    "mahalanobis": "high"
+  },
+  "mahalanobis_file": "ood_mahalanobis_CustomCNN.npz",
+  "mahalanobis_shrinkage": 0.1,
+  "feature_dim": 256,
+  "ood_evaluation": null
+}

@@ -1,0 +1,36 @@
+{
+  "model": "UNet",
+  "n_calibration_images": 800,
+  "subsampled": true,
+  "val_accuracy": 0.9775,
+  "temperature": 0.555147,
+  "ece_before": 0.107787,
+  "ece_after": 0.01261,
+  "target_tpr": 0.95,
+  "thresholds": {
+    "msp": 0.865753,
+    "margin": 0.765304,
+    "entropy": 0.201595,
+    "energy": -2.054139,
+    "mahalanobis": 256.64328
+  },
+  "thresholds_unclamped": {
+    "msp": 0.865753,
+    "margin": 0.765304,
+    "entropy": 0.201595,
+    "energy": -2.054139,
+    "mahalanobis": 256.64328
+  },
+  "clamped": [],
+  "reject_side": {
+    "msp": "low",
+    "margin": "low",
+    "entropy": "high",
+    "energy": "high",
+    "mahalanobis": "high"
+  },
+  "mahalanobis_file": "ood_mahalanobis_UNet.npz",
+  "mahalanobis_shrinkage": 0.1,
+  "feature_dim": 256,
+  "ood_evaluation": null
+}

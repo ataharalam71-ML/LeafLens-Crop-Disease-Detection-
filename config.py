@@ -114,6 +114,74 @@ CONFIDENCE_THRESHOLD = 0.60    # Minimum confidence to display prediction
 # Best model to use for inference (auto-selected after training)
 INFERENCE_MODEL = "EfficientNetB0"   # Change if you prefer another
 
+# ─── Out-of-distribution (OOD) rejection ──────────────────────────────────────
+# A 10-way softmax has no way to say "that isn't a tomato leaf" — it will assign
+# a coffee cup to a disease with high confidence. utils/ood.py adds an
+# abstention layer; see that module's docstring for the method and citations.
+OOD_ENABLED = True
+
+# Image-quality gates (model-free, run before inference).
+OOD_MIN_VEGETATION = 0.18    # min share of the frame that must read as plant
+OOD_MIN_SHARPNESS  = 45.0    # min variance-of-Laplacian; below this it's blurry
+OOD_MIN_BRIGHTNESS = 35.0    # mean grey level floor
+OOD_MAX_BRIGHTNESS = 235.0   # mean grey level ceiling (blown out)
+
+# Fraction of genuine validation images the calibrated thresholds must keep.
+# 0.95 = tune each threshold so 95% of real tomato leaves still get answered.
+OOD_TARGET_TPR = 0.95
+
+# Signals are grouped into independent families, and a family casts at most ONE
+# vote. msp, margin and entropy are three readings of the same softmax vector:
+# on a saturated model they fire together, and letting them vote separately
+# would turn one piece of evidence into an instant rejection. Energy (logit
+# magnitude) and Mahalanobis (feature geometry) are genuinely separate evidence.
+OOD_SIGNAL_FAMILIES = {
+    "quality":    ["blurry", "too_dark", "too_bright"],
+    "confidence": ["msp", "margin", "entropy"],
+    "energy":     ["energy"],
+    "feature":    ["mahalanobis"],
+}
+
+# Votes needed before an answer is downgraded. 1 family unhappy -> REVIEW,
+# 2 or more independent families unhappy -> REJECT.
+OOD_REVIEW_VOTES = 1
+OOD_REJECT_VOTES = 2
+
+# Clamps on the calibrated thresholds, as (min, max).
+#
+# Why this is needed: PlantVillage validation accuracy is 99.96%, so after
+# temperature scaling the confidence distribution is nearly a point mass at 1.0
+# and the 95%-TPR quantile of MSP comes out at 0.9999. That is not an operating
+# point, it is an artifact of a validation set with almost no hard examples —
+# and it would flag a perfectly good leaf photographed at 98% confidence. The
+# clamp keeps the calibrated value when it is informative and falls back to a
+# defensible ceiling when the validation distribution has collapsed.
+# calibrate_ood.py prints a warning whenever a clamp actually binds.
+#
+# Energy and Mahalanobis have no absolute scale (they depend on the model's
+# logit magnitudes and feature dimension), so they are left unclamped.
+OOD_THRESHOLD_LIMITS = {
+    "msp":     (0.30, 0.90),
+    "margin":  (0.05, 0.80),
+    "entropy": (0.05, 0.60),
+}
+
+# Covariance shrinkage for the Mahalanobis scorer. Feature dimension is the same
+# order as the number of calibration images, so the raw covariance is
+# ill-conditioned; this pulls it toward a scaled identity.
+OOD_MAHALANOBIS_SHRINKAGE = 0.10
+
+# Used when results/ood_calibration_<model>.json is missing. Deliberately
+# conservative: they abstain more than a tuned detector would, and every
+# response reports calibrated=False so an uncalibrated run is never mistaken
+# for a tuned one. Run  python calibrate_ood.py  to replace them.
+OOD_FALLBACK_THRESHOLDS = {
+    "msp":     0.60,     # reject below this max softmax probability
+    "entropy": 0.35,     # reject above this normalised predictive entropy
+    "margin":  0.15,     # reject below this top-1 minus top-2 gap
+    "energy": -5.0,      # reject above this free energy  (-logsumexp(logits))
+}
+
 # ─── Flask Web App ────────────────────────────────────────────────────────────
 FLASK_HOST = "0.0.0.0"
 FLASK_PORT = 5000

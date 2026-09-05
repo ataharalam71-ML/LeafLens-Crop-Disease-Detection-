@@ -1,0 +1,39 @@
+{
+  "model": "AlexNet",
+  "n_calibration_images": 800,
+  "subsampled": true,
+  "val_accuracy": 0.1913,
+  "temperature": 0.911026,
+  "ece_before": 0.014621,
+  "ece_after": 0.006032,
+  "target_tpr": 0.95,
+  "thresholds": {
+    "msp": 0.3,
+    "margin": 0.052891,
+    "entropy": 0.6,
+    "energy": -2.248412,
+    "mahalanobis": 0.0
+  },
+  "thresholds_unclamped": {
+    "msp": 0.185218,
+    "margin": 0.052891,
+    "entropy": 0.961021,
+    "energy": -2.248412,
+    "mahalanobis": 0.0
+  },
+  "clamped": [
+    "msp",
+    "entropy"
+  ],
+  "reject_side": {
+    "msp": "low",
+    "margin": "low",
+    "entropy": "high",
+    "energy": "high",
+    "mahalanobis": "high"
+  },
+  "mahalanobis_file": "ood_mahalanobis_AlexNet.npz",
+  "mahalanobis_shrinkage": 0.1,
+  "feature_dim": 4096,
+  "ood_evaluation": null
+}

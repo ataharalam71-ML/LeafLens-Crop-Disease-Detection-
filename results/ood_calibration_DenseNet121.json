@@ -1,0 +1,40 @@
+{
+  "model": "DenseNet121",
+  "n_calibration_images": 800,
+  "subsampled": true,
+  "val_accuracy": 1.0,
+  "temperature": 0.035091,
+  "ece_before": 0.091263,
+  "ece_after": 4e-06,
+  "target_tpr": 0.95,
+  "thresholds": {
+    "msp": 0.9,
+    "margin": 0.8,
+    "entropy": 0.05,
+    "energy": -3.434386,
+    "mahalanobis": 462.539125
+  },
+  "thresholds_unclamped": {
+    "msp": 1.0,
+    "margin": 1.0,
+    "entropy": 0.0,
+    "energy": -3.434386,
+    "mahalanobis": 462.539125
+  },
+  "clamped": [
+    "msp",
+    "margin",
+    "entropy"
+  ],
+  "reject_side": {
+    "msp": "low",
+    "margin": "low",
+    "entropy": "high",
+    "energy": "high",
+    "mahalanobis": "high"
+  },
+  "mahalanobis_file": "ood_mahalanobis_DenseNet121.npz",
+  "mahalanobis_shrinkage": 0.1,
+  "feature_dim": 1024,
+  "ood_evaluation": null
+}

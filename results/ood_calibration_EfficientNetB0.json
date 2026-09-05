@@ -1,0 +1,40 @@
+{
+  "model": "EfficientNetB0",
+  "n_calibration_images": 800,
+  "subsampled": true,
+  "val_accuracy": 1.0,
+  "temperature": 0.109936,
+  "ece_before": 0.09346,
+  "ece_after": 3e-06,
+  "target_tpr": 0.95,
+  "thresholds": {
+    "msp": 0.9,
+    "margin": 0.8,
+    "entropy": 0.05,
+    "energy": -4.184069,
+    "mahalanobis": 580.591931
+  },
+  "thresholds_unclamped": {
+    "msp": 1.0,
+    "margin": 1.0,
+    "entropy": 0.0,
+    "energy": -4.184069,
+    "mahalanobis": 580.591931
+  },
+  "clamped": [
+    "msp",
+    "margin",
+    "entropy"
+  ],
+  "reject_side": {
+    "msp": "low",
+    "margin": "low",
+    "entropy": "high",
+    "energy": "high",
+    "mahalanobis": "high"
+  },
+  "mahalanobis_file": "ood_mahalanobis_EfficientNetB0.npz",
+  "mahalanobis_shrinkage": 0.1,
+  "feature_dim": 1280,
+  "ood_evaluation": null
+}
